@@ -12,3 +12,5 @@ With the introduction of neural networks, deep learning models have dominated al
 
 [Distributed AI Research Institute (DAIR)](https://www.dair-institute.org/)
 
+[Survival of the Best Fit](https://www.survivalofthebestfit.com/)
+
