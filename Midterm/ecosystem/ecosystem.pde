@@ -1,13 +1,15 @@
-// Preys and predators are both movers
+// Some general configuration parameters about the characteristics of the preys and predators
 int num_preys = 10;
+int alive_preys = num_preys;
 int timeElapsed = 0;
 int lowAge = 40;
 int highAge = 60;
+// Preys' colors will turn from green to black as they approach their max age
 int youngColor = color(15,155,15);
 int oldColor = color(0, 0, 0);
 FoodGenerator FG = new FoodGenerator();
-Mover[] prey = new Mover[num_preys];
-Mover predator;
+Creature[] prey = new Creature[num_preys];
+Creature predator;
 
 // #TODO: All preys within a distance to the predator gains speed boost; Preys steer for food and increment hunger; predator rests after forage 
 
@@ -15,45 +17,47 @@ void setup() {
   size(1800, 1000);
 
   for (int i = 0; i < prey.length; i++) {
-    // Each prey is initialized randomly.
-    prey[i] = new Mover(random(1, 5), // mass
+    // Each prey is initialized with random mass and random location.
+    prey[i] = new Creature(random(1, 5), // mass
       random(width), random(height), "prey"); // initial location
   }
   // Predator has a heavier mass, less agile than its preys
-  predator = new Mover(random(1,5), random(width), random(height), "predator");
+  predator = new Creature(random(2, 7), random(width), random(height), "predator");
 }
 
 void draw() {
   background(255);
-
-  //timeElapsed = millis()/1000;
-  text("Time elapsed: "+timeElapsed, 200, 100);  
   
+  // Displaying information about the current status of the ecosystem
+  fill(0);
+  textSize(18);
+  text("Time elapsed: "+timeElapsed, 30, 30);
+  text("Preys alive: "+ alive_preys, 30, 50);
+  text("Food available: " + FG.food_cnt, 30, 70);
+  
+  // Update timeElapsed after one whole second
   if(timeElapsed != millis()/1000){
     timeElapsed = millis()/1000;
     for (int i = 0; i < prey.length; i++) {
-      if(prey[i] != null) prey[i].hunger_trigger();
+      if(prey[i] != null) prey[i].hunger_trigger(); // Decrement hunger level and increment ages for preys
     }
     
     if(timeElapsed % 5 == 0){
-      FG.generateNew(timeElapsed);
+      FG.generateNew(timeElapsed); // Generate new food every 5 seconds
     }
-    //print(timeElapsed);
   }
   
   
   int idx = 0;
   float minDist = sqrt(1800*1800+1000*1000);
-  // For each mprey
+  // For each prey
   for (int i = 0; i < prey.length; i++) {
     if (prey[i] != null){
     // All the preys would run away from the predator
     PVector force = predator.attract(prey[i]);
     prey[i].applyForce(force);
-    //PVector aForce = a.attract(prey[i]);
-    //prey[1].applyForce(aForce);
     
-    // Note down the minimum distance between the preys and the predator
+    // Note down the prey with the smallest distance to the predator
     float dist = PVector.dist(predator.location, prey[i].location);
     if (dist < minDist){
       minDist = dist;
@@ -62,13 +66,13 @@ void draw() {
    }
   }
   // The predator is only attracted to the nearest prey
-  //PVector force = prey[idx].attract(predator);
-  // print(idx);
-  //predator.applyForce(force);
+  // with a steering force that allows it to be more agile
   predator.seek(prey[idx].location);
   // The prey being chased would also run faster
   PVector escapeForce = prey[idx].attract(predator).mult(1.5);
   prey[idx].applyForce(escapeForce);
+  
+  // Updating the location of each prey and make sure they stay within frame
   for(int i=0; i<prey.length; i++){
     if(prey[i] != null){
       prey[i].update();
@@ -77,14 +81,16 @@ void draw() {
   }
   
   predator.update();
+  
   // Check prey eaten by predator
   for(int i=0; i<prey.length; i++){
     if(prey[i]!=null && predator.checkEaten(prey[i])){
       prey[i] = null;
       predator.hunger = 100;
+      alive_preys -= 1;
     }
   }
-  
+  // Displaying preys and predators
   for(int i=0; i<prey.length; i++){
     if(prey[i] != null){
       prey[i].display();
@@ -95,7 +101,7 @@ void draw() {
   FG.display(); 
 }
 
-
+// The Food class defines a single food that has a random location and random size
 class Food {
   PVector location;
   int average_size = 20;
@@ -123,7 +129,7 @@ class Food {
 }
 
 
-
+// The FoodGenerator class limit the number of food available at a given time and determine the quantity using a Perlin noise 
 class FoodGenerator {
   Food[] food_array;
   int min_food_num = 2;
@@ -139,6 +145,7 @@ class FoodGenerator {
     }
   }
 
+// The function takes in the timeElapsed as the argument to the Perlin noise function and determine a semi-random quantity of food generated
   void generateNew(int timeElapsed){
     int gen_num = round(noise(timeElapsed * 0.1) * variance);  
     if(gen_num + food_cnt > max_food) gen_num = max_food - food_cnt;
@@ -155,7 +162,8 @@ class FoodGenerator {
     }
   }
   
-  void trackFood(Mover[] prey){
+// The function takes in the prey array and determine which prey has eaten any food available
+  void trackFood(Creature[] prey){
     for(int i=0; i<food_array.length; i++){
       if(food_array[i] != null){
         Food target = food_array[i];
@@ -182,8 +190,8 @@ class FoodGenerator {
 }
 
 
-// Predator is blue and preys are green
-class Mover {
+// Preys and predators are both Creatures
+class Creature {
 
   PVector location;
   PVector velocity;
@@ -195,7 +203,7 @@ class Mover {
   int age;
   int maxAge;
 
-  Mover(float _mass_, float _x_, float _y_, String _type) {
+  Creature(float _mass_, float _x_, float _y_, String _type) {
     mass = _mass_;
     location = new PVector(_x_, _y_);
     velocity = new PVector(0, 0);
@@ -213,8 +221,8 @@ class Mover {
     acceleration.add(f);
   }
 
-  // The Mover now knows how to attract another Mover.
-  PVector attract(Mover m) {
+  // The Creature now knows how to attract another Creature, used for preys to run away from their predator
+  PVector attract(Creature m) {
 
     PVector force = PVector.sub(location, m.location);
     float distance = force.mag();
@@ -231,6 +239,7 @@ class Mover {
     return force;
   }
   
+  // The Creature could seek their food, used for predator to hunt for preys or for preys to steer for their food
   void seek(PVector target) {
     PVector desired = PVector.sub(target,location);
     desired.normalize();
@@ -276,6 +285,7 @@ class Mover {
     popMatrix();
   }
 
+// The function adjusts age and hunger level periodically
 void hunger_trigger() {
     if(hunger>0){
       hunger -= 5; 
@@ -288,9 +298,7 @@ void hunger_trigger() {
 
 
   // With this code an object bounces when it hits the edges of a window.
-  // Alternatively objects could vanish or reappear on the other side
-  // or reappear at a random location or other ideas. Also instead of
-  // bouncing at full-speed vehicles might lose speed. So many options!
+  // Also instead of bouncing at full-speed vehicles might lose speed.
 
   void checkEdges() {
     if (location.x > width) {
@@ -314,7 +322,8 @@ void hunger_trigger() {
     }
   }
   
-  boolean checkEaten(Mover m) {
+  // Check whether a creature is being eaten by another one
+  boolean checkEaten(Creature m) {
     if( abs(location.x - m.location.x) <= 10 && abs(location.y - m.location.y) <= 10 ){
         return true;
     }else{
