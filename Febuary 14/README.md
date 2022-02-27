@@ -14,8 +14,8 @@ Collision is hard to implement, need to look into Box2D chapture in the book. Al
 
 ## Screenshots
 
-![](attachments\2022-02-13-23-10-42-image.png)
+![](attachments/2022-02-13-23-10-42-image.png)
 
-![](attachments\2022-02-13-23-11-09-image.png)
+![](attachments/2022-02-13-23-11-09-image.png)
 
 [Link to video](https://drive.google.com/file/d/1tZauoaTW1oDxC6otW7bPnm6xuqH-a3k3/view?usp=sharing)
