@@ -1,3 +1,11 @@
+// Author: @Phillip Wang pw1287
+// Course: Robata Psyche
+// Instructor: Michael Shiloh
+// Project Description: This is a project that aims to simulate a virtual ecosystem with digital creatures interacting with each other.
+// The code simulates the situation where a predator attempts to hund down the preys. From the start, their locations are randomly generated.
+// For each prey, they are constantly running away from the predator. On the other hand, the predator locates the nearest prey at any given time and chase it down at a higher speed.
+
+
 // Some general configuration parameters about the characteristics of the preys and predators
 int num_preys = 10;
 int alive_preys = num_preys;
@@ -5,13 +13,13 @@ int timeElapsed = 0;
 int lowAge = 40;
 int highAge = 60;
 // Preys' colors will turn from green to black as they approach their max age
-int youngColor = color(15,155,15);
+int youngColor = color(15, 155, 15);
 int oldColor = color(0, 0, 0);
 FoodGenerator FG = new FoodGenerator();
 Creature[] prey = new Creature[num_preys];
 Creature predator;
 
-// #TODO: All preys within a distance to the predator gains speed boost; Preys steer for food and increment hunger; predator rests after forage 
+// #TODO: All preys within a distance to the predator gains speed boost; Preys steer for food and increment hunger; predator rests after forage
 
 void setup() {
   size(1800, 1000);
@@ -27,109 +35,125 @@ void setup() {
 
 void draw() {
   background(255);
-  
+
   // Displaying information about the current status of the ecosystem
   fill(0);
   textSize(18);
   text("Time elapsed: "+timeElapsed, 30, 30);
   text("Preys alive: "+ alive_preys, 30, 50);
   text("Food available: " + FG.food_cnt, 30, 70);
-  
+
   // Update timeElapsed after one whole second
-  if(timeElapsed != millis()/1000){
+  if (timeElapsed != millis()/1000) {
     timeElapsed = millis()/1000;
     for (int i = 0; i < prey.length; i++) {
-      if(prey[i] != null) prey[i].hunger_trigger(); // Decrement hunger level and increment ages for preys
+      if (prey[i] != null) prey[i].hunger_trigger(); // Decrement hunger level and increment ages for preys
     }
-    
-    if(timeElapsed % 5 == 0){
+
+    if (timeElapsed % 5 == 0) {
       FG.generateNew(timeElapsed); // Generate new food every 5 seconds
     }
   }
-  
-  
+
+
   int idx = 0;
   float minDist = sqrt(1800*1800+1000*1000);
-  // For each prey
+  // For each prey, repel them away from the predator
   for (int i = 0; i < prey.length; i++) {
-    if (prey[i] != null){
-    // All the preys would run away from the predator
-    PVector force = predator.attract(prey[i]);
-    prey[i].applyForce(force);
-    
-    // Note down the prey with the smallest distance to the predator
-    float dist = PVector.dist(predator.location, prey[i].location);
-    if (dist < minDist){
-      minDist = dist;
-      idx = i;
+    if (prey[i] != null) {
+      // All the preys would run away from the predator and run towards the nearest food
+      PVector force = predator.attract(prey[i]);
+      prey[i].applyForce(force);
+      // Only search for food when there is at least one
+      if (FG.food_cnt > 0){
+        prey[i].locateNearestFood(FG.food_array);
+        prey[i].seek(prey[i].nearestFood);
+      }
+      
+      // Note down the prey with the smallest distance to the predator
+      float dist = PVector.dist(predator.location, prey[i].location);
+      if (dist < minDist) {
+        minDist = dist;
+        idx = i;
+      }
     }
-   }
   }
-  // The predator is only attracted to the nearest prey
+  // The predator is only attracted to the nearest prey (when there is at least one)
   // with a steering force that allows it to be more agile
-  predator.seek(prey[idx].location);
-  // The prey being chased would also run faster
-  PVector escapeForce = prey[idx].attract(predator).mult(1.5);
-  prey[idx].applyForce(escapeForce);
+  if (alive_preys > 0) {
+    predator.seek(prey[idx].location);
+    
+    // The prey being chased would also run faster  
+    PVector escapeForce = prey[idx].attract(predator).mult(1.5);
+    prey[idx].applyForce(escapeForce);
+  }
   
   // Updating the location of each prey and make sure they stay within frame
-  for(int i=0; i<prey.length; i++){
-    if(prey[i] != null){
+  for (int i=0; i<prey.length; i++) {
+    if (prey[i] != null) {
       prey[i].update();
-    prey[i].checkEdges();
+      prey[i].checkEdges();
     }
   }
+  // Check whether food has been eaten
+  FG.trackFood(prey);
   
+  // Updating predator's location
   predator.update();
-  
+
   // Check prey eaten by predator
-  for(int i=0; i<prey.length; i++){
-    if(prey[i]!=null && predator.checkEaten(prey[i])){
+  for (int i=0; i<prey.length; i++) {
+    if (prey[i]!=null && predator.checkEaten(prey[i])) {
       prey[i] = null;
       predator.hunger = 100;
       alive_preys -= 1;
     }
   }
   // Displaying preys and predators
-  for(int i=0; i<prey.length; i++){
-    if(prey[i] != null){
+  for (int i=0; i<prey.length; i++) {
+    if (prey[i] != null) {
       prey[i].display();
     }
   }
   predator.checkEdges();
   predator.display();
-  FG.display(); 
+  FG.display();
 }
 
-// The Food class defines a single food that has a random location and random size
-class Food {
+// A common class for all objects (food & creatures) so that there are generic methods for seeking any subclasses of objects
+class Object {
   PVector location;
+}
+
+
+// The Food class defines a single food that has a random location and random size
+class Food extends Object {
   int average_size = 20;
   float size;
-  
-  Food(){
+
+  Food() {
     location = new PVector(random(width), random(height));
     size = random(-10.0, 10.0) + average_size;
   }
-  
-  void display(){
+
+  void display() {
     stroke(0);
     fill(255, 143, 163);
     circle(location.x, location.y, size*0.7);
   }
   
-  boolean checkEaten(PVector m){
-    if(abs(m.x - location.x) <= size && abs(m.y - location.y) <= size){
+  // This function checks whether the food is in contact with another object, takes in PVector as arguments
+  boolean checkEaten(PVector m) {
+    if (abs(m.x - location.x) <= size && abs(m.y - location.y) <= size) {
       return true;
-    }else{
+    } else {
       return false;
     }
   }
-
 }
 
 
-// The FoodGenerator class limit the number of food available at a given time and determine the quantity using a Perlin noise 
+// The FoodGenerator class limit the number of food available at a given time and determine the quantity using a Perlin noise
 class FoodGenerator {
   Food[] food_array;
   int min_food_num = 2;
@@ -137,23 +161,25 @@ class FoodGenerator {
   int variance = 8;
   int food_cnt = 0;
   int max_food = 10;
-  
-  FoodGenerator(){
+
+  FoodGenerator() {
     food_array = new Food[max_food];
-    for(int i=0; i<food_array.length; i++){
+    for (int i=0; i<food_array.length; i++) {
       food_array[i] = null;
     }
   }
 
-// The function takes in the timeElapsed as the argument to the Perlin noise function and determine a semi-random quantity of food generated
-  void generateNew(int timeElapsed){
-    int gen_num = round(noise(timeElapsed * 0.1) * variance);  
-    if(gen_num + food_cnt > max_food) gen_num = max_food - food_cnt;
+  // The function takes in the timeElapsed as the argument to the Perlin noise function and determine a semi-random quantity of food generated
+  void generateNew(int timeElapsed) {
+    int gen_num = round(noise(timeElapsed * 0.1) * variance);
     
+    // Limit the number of available food on screen
+    if (gen_num + food_cnt > max_food) gen_num = max_food - food_cnt;
+
     int i = 0;
     int cnt = 0;
-    while(cnt<gen_num){
-      if(food_array[i] == null){
+    while (cnt<gen_num) {
+      if (food_array[i] == null) {
         food_array[i] = new Food();
         food_cnt += 1;
         cnt += 1;
@@ -161,14 +187,14 @@ class FoodGenerator {
       i = (i+1) % food_array.length;
     }
   }
-  
-// The function takes in the prey array and determine which prey has eaten any food available
-  void trackFood(Creature[] prey){
-    for(int i=0; i<food_array.length; i++){
-      if(food_array[i] != null){
+
+  // The function takes in the prey array and determine which prey has eaten any food available
+  void trackFood(Creature[] prey) {
+    for (int i=0; i<food_array.length; i++) {
+      if (food_array[i] != null) {
         Food target = food_array[i];
-        for(int j=0; j<prey.length; j++){
-          if(prey[j] != null && target.checkEaten(prey[j].location)){
+        for (int j=0; j<prey.length; j++) {
+          if (prey[j] != null && target.checkEaten(prey[j].location)) {
             prey[j].hunger += target.size;
             food_array[i] = null;
             food_cnt -= 1;
@@ -176,26 +202,24 @@ class FoodGenerator {
         }
       }
     }
-  
   }
-  
+
   void display() {
-    for(int i=0; i<food_array.length; i++){
-      if(food_array[i] != null){
+    for (int i=0; i<food_array.length; i++) {
+      if (food_array[i] != null) {
         food_array[i].display();
       }
     }
   }
-
 }
 
 
 // Preys and predators are both Creatures
-class Creature {
+class Creature extends Object {
 
-  PVector location;
   PVector velocity;
   PVector acceleration;
+  PVector nearestFood;
   int hunger;
   float mass;
   float G = 0.4;
@@ -213,7 +237,20 @@ class Creature {
     age = 0;
     maxAge = int(random(float(lowAge), float(highAge)));
   }
-
+  
+  // The creature would locate the nearest food among an array, save its location, and return its index to the caller
+  int locateNearestFood(Object[] o_arr) {
+    float minDist = (float)Integer.MAX_VALUE;
+    int i = 0;
+    for(;i<o_arr.length; i++){
+      if(o_arr[i] != null && location.dist(o_arr[i].location) < minDist){
+        nearestFood = o_arr[i].location;
+        minDist = location.dist(o_arr[i].location);
+      }
+    }
+    return i;
+  }
+  
   // Newton’s second law.
   void applyForce(PVector force) {
     // Receive a force, divide by mass, and add to acceleration.
@@ -238,13 +275,13 @@ class Creature {
 
     return force;
   }
-  
+
   // The Creature could seek their food, used for predator to hunt for preys or for preys to steer for their food
   void seek(PVector target) {
-    PVector desired = PVector.sub(target,location);
+    PVector desired = PVector.sub(target, location);
     desired.normalize();
     desired.mult(mass*0.6);
-    PVector steer = PVector.sub(desired,velocity);
+    PVector steer = PVector.sub(desired, velocity);
     //steer.limit(maxforce);
     applyForce(steer);
   }
@@ -256,21 +293,19 @@ class Creature {
   }
 
   void display() {
-    
-    if (hunger <= 0){
-        stroke(255, 0, 0);
-      }else{
-        stroke(0);
-      }
-    
-    if (type == "prey"){
+
+    if (hunger <= 0) {
+      stroke(255, 0, 0);
+    } else {
+      stroke(0);
+    }
+
+    if (type == "prey") {
       //println(age/float(maxAge));
       color displayedColor = lerpColor(youngColor, oldColor, age/float(maxAge));
       //println(displayedColor);
       fill(displayedColor);
-    } 
-    
-    else fill (0, 0, 255);
+    } else fill (0, 0, 255);
 
     // Rotate the mover to point in the direction of travel
     // Translate to the center of the move
@@ -285,16 +320,16 @@ class Creature {
     popMatrix();
   }
 
-// The function adjusts age and hunger level periodically
-void hunger_trigger() {
-    if(hunger>0){
-      hunger -= 5; 
+  // The function adjusts age and hunger level periodically
+  void hunger_trigger() {
+    if (hunger>0) {
+      hunger -= 5;
     }
-    if(hunger<=0){
+    if (hunger<=0) {
       maxAge -= 1;
     }
     age += 1;
-}
+  }
 
 
   // With this code an object bounces when it hits the edges of a window.
@@ -321,14 +356,13 @@ void hunger_trigger() {
       velocity.y *= 0.8; // lose a bit of energy in the bounce
     }
   }
-  
+
   // Check whether a creature is being eaten by another one
   boolean checkEaten(Creature m) {
-    if( abs(location.x - m.location.x) <= 10 && abs(location.y - m.location.y) <= 10 ){
-        return true;
-    }else{
+    if ( abs(location.x - m.location.x) <= 10 && abs(location.y - m.location.y) <= 10 ) {
+      return true;
+    } else {
       return false;
     }
   }
-  
 }
