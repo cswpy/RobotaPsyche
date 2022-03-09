@@ -11,10 +11,11 @@ int num_preys = 10;
 int alive_preys = num_preys;
 int timeElapsed = 0;
 int lowAge = 40;
-int highAge = 60;
+int highAge = 80;
 // Preys' colors will turn from green to black as they approach their max age
-int youngColor = color(15, 155, 15);
-int oldColor = color(0, 0, 0);
+int youngColor = color(137, 207, 240);
+int oldColor = color(0, 0, 139);
+int dangerDist = 300;
 FoodGenerator FG = new FoodGenerator();
 Creature[] prey = new Creature[num_preys];
 Creature predator;
@@ -56,7 +57,7 @@ void draw() {
   }
 
 
-  int idx = 0;
+  int idx = -1;
   float minDist = sqrt(1800*1800+1000*1000);
   // For each prey, repel them away from the predator
   for (int i = 0; i < prey.length; i++) {
@@ -64,8 +65,8 @@ void draw() {
       // All the preys would run away from the predator and run towards the nearest food
       PVector force = predator.attract(prey[i]);
       prey[i].applyForce(force);
-      // Only search for food when there is at least one
-      if (FG.food_cnt > 0){
+      // Only search for food when there is at least one and it is not in high alert because of nearby predator
+      if (FG.food_cnt > 0 && !prey[i].isHunted(predator, dangerDist)){
         prey[i].locateNearestFood(FG.food_array);
         prey[i].seek(prey[i].nearestFood);
       }
@@ -81,11 +82,14 @@ void draw() {
   // The predator is only attracted to the nearest prey (when there is at least one)
   // with a steering force that allows it to be more agile
   if (alive_preys > 0) {
-    predator.seek(prey[idx].location);
+    //NullPointerError here
+    if (idx >= 0){
+      predator.seek(prey[idx].location);
+      // The prey being chased would also run faster
+      PVector escapeForce = prey[idx].attract(predator).mult(2);
+      prey[idx].applyForce(escapeForce);
+    }  
     
-    // The prey being chased would also run faster  
-    PVector escapeForce = prey[idx].attract(predator).mult(1.5);
-    prey[idx].applyForce(escapeForce);
   }
   
   // Updating the location of each prey and make sure they stay within frame
@@ -221,6 +225,8 @@ class Creature extends Object {
   PVector acceleration;
   PVector nearestFood;
   int hunger;
+  float baseSpeed = 0.5;
+  float unitSpeed = 0.3;
   float mass;
   float G = 0.4;
   String type;
@@ -271,7 +277,7 @@ class Creature extends Object {
 
     // If the color is different then we will be repelled
     if (type=="predator" && m.type=="prey") force.mult(-1);
-    else if (type=="prey" && m.type=="predator") force.mult(5);
+    else if (type=="prey" && m.type=="predator") force.mult(4);
 
     return force;
   }
@@ -280,12 +286,20 @@ class Creature extends Object {
   void seek(PVector target) {
     PVector desired = PVector.sub(target, location);
     desired.normalize();
-    desired.mult(mass*0.6);
+    // The speed for seeking food decreases when the prey is full, increases when the prey is hungry
+    desired.mult(mass*baseSpeed + unitSpeed * 50/(hunger+10));
     PVector steer = PVector.sub(desired, velocity);
     //steer.limit(maxforce);
     applyForce(steer);
   }
-
+  
+  boolean isHunted(Object o, int radius) {
+      if (location.dist(o.location) <= radius) {
+        return true;
+      }
+      return false;
+  }
+  
   void update() {
     velocity.add(acceleration);
     location.add(velocity);
@@ -305,7 +319,7 @@ class Creature extends Object {
       color displayedColor = lerpColor(youngColor, oldColor, age/float(maxAge));
       //println(displayedColor);
       fill(displayedColor);
-    } else fill (0, 0, 255);
+    } else fill (255, 0, 0);
 
     // Rotate the mover to point in the direction of travel
     // Translate to the center of the move
