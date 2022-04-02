@@ -6,6 +6,7 @@
 // For each prey, they are constantly running away from the predator. On the other hand, the predator locates the nearest prey at any given time and chase it down at a higher speed.
 
 
+class PhillipEcosystem{
 // Some general configuration parameters about the characteristics of the preys and predators
 int num_preys = 10;
 int alive_preys = num_preys;
@@ -48,7 +49,10 @@ void draw() {
   if (timeElapsed != millis()/1000) {
     timeElapsed = millis()/1000;
     for (int i = 0; i < prey.length; i++) {
-      if (prey[i] != null) prey[i].hunger_trigger(); // Decrement hunger level and increment ages for preys
+      if (prey[i] != null){
+        prey[i].hunger_trigger(); // Decrement hunger level and increment ages for preys
+        // if(!prey[i].alive) call the deceased function 
+      } 
     }
 
     if (timeElapsed % 5 == 0) {
@@ -232,6 +236,7 @@ class Creature extends Object {
   String type;
   int age;
   int maxAge;
+  boolean alive;
 
   Creature(float _mass_, float _x_, float _y_, String _type) {
     mass = _mass_;
@@ -242,6 +247,7 @@ class Creature extends Object {
     hunger = 100;
     age = 0;
     maxAge = int(random(float(lowAge), float(highAge)));
+    alive = true;
   }
   
   // The creature would locate the nearest food among an array, save its location, and return its index to the caller
@@ -336,13 +342,14 @@ class Creature extends Object {
 
   // The function adjusts age and hunger level periodically
   void hunger_trigger() {
-    if (hunger>0) {
-      hunger -= 5;
+    if (hunger>0) hunger -= 5;
+    if (hunger<=0) maxAge -= 1;
+    if (age < maxAge){
+      age += 1;
     }
-    if (hunger<=0) {
-      maxAge -= 1;
+    else {
+      alive = false;
     }
-    age += 1;
   }
 
 
@@ -379,4 +386,5 @@ class Creature extends Object {
       return false;
     }
   }
+}
 }
